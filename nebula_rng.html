@@ -230,6 +230,110 @@
             50% { transform: rotate(180deg) scale(1.05); filter: blur(1px); }
             100% { transform: rotate(360deg) scale(1); filter: blur(0px); }
         }
+
+        .bg-aura-meteor {
+            opacity: 0.8;
+            background:
+                linear-gradient(135deg, rgba(251,146,60,0) 0%, rgba(251,146,60,0.05) 42%, rgba(251,146,60,0.65) 50%, rgba(251,146,60,0) 58%),
+                radial-gradient(circle at 75% 72%, rgba(251,146,60,0.25) 0%, rgba(15,23,42,0.15) 45%, transparent 72%);
+            animation: bgMeteorFall 3s linear infinite;
+        }
+        @keyframes bgMeteorFall {
+            0% { transform: translate(45vw, -40vh) rotate(-22deg); }
+            100% { transform: translate(-55vw, 45vh) rotate(-22deg); }
+        }
+
+        .bg-aura-comet {
+            opacity: 0.75;
+            background:
+                radial-gradient(circle at 22% 28%, rgba(103,232,249,0.8) 0%, rgba(103,232,249,0.1) 18%, transparent 45%),
+                linear-gradient(120deg, rgba(125,211,252,0) 0%, rgba(125,211,252,0.4) 35%, rgba(125,211,252,0) 70%);
+            animation: bgCometSweep 4s ease-in-out infinite;
+        }
+        @keyframes bgCometSweep {
+            0% { transform: translate(-45vw, 20vh) rotate(-12deg); }
+            50% { transform: translate(25vw, -5vh) rotate(-12deg); }
+            100% { transform: translate(70vw, -25vh) rotate(-12deg); }
+        }
+
+        .bg-aura-asteroid {
+            opacity: 0.65;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(120,113,108,0.75) 0 5px, transparent 7px),
+                radial-gradient(circle at 70% 20%, rgba(120,113,108,0.7) 0 4px, transparent 6px),
+                radial-gradient(circle at 40% 70%, rgba(120,113,108,0.7) 0 6px, transparent 8px),
+                radial-gradient(circle at 80% 60%, rgba(120,113,108,0.7) 0 5px, transparent 7px),
+                radial-gradient(circle at 30% 50%, rgba(120,113,108,0.6) 0 4px, transparent 6px);
+            animation: bgAsteroidFloat 14s ease-in-out infinite;
+        }
+        @keyframes bgAsteroidFloat {
+            0% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-18px) translateX(10px); }
+            100% { transform: translateY(0) translateX(0); }
+        }
+
+        #intro-scene {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        #intro-scene::before,
+        #intro-scene::after {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            opacity: 0;
+        }
+        .intro-scene-blackhole::before {
+            opacity: 1;
+            background: conic-gradient(from 0deg, rgba(59,130,246,0.15), rgba(147,197,253,0.5), rgba(59,130,246,0.15));
+            animation: introBlackHoleCreate 1.4s ease-out forwards;
+        }
+        .intro-scene-blackhole::after {
+            opacity: 1;
+            background: radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(2,6,23,0.3) 45%, transparent 70%);
+            animation: introBlackHoleCore 1.4s ease-out forwards;
+        }
+        @keyframes introBlackHoleCreate {
+            from { transform: scale(2.2) rotate(0deg); filter: blur(8px); }
+            to { transform: scale(1) rotate(300deg); filter: blur(0); }
+        }
+        @keyframes introBlackHoleCore {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.9; }
+        }
+        .intro-scene-meteor::before {
+            opacity: 1;
+            background: linear-gradient(135deg, rgba(251,146,60,0) 25%, rgba(251,146,60,0.85) 48%, rgba(251,146,60,0) 65%);
+            animation: introMeteorStrike 1.2s ease-out forwards;
+        }
+        @keyframes introMeteorStrike {
+            0% { transform: translate(55vw, -65vh) rotate(-25deg); }
+            100% { transform: translate(-35vw, 40vh) rotate(-25deg); }
+        }
+        .intro-scene-comet::before {
+            opacity: 1;
+            background: linear-gradient(110deg, rgba(125,211,252,0), rgba(125,211,252,0.8), rgba(125,211,252,0));
+            animation: introCometRush 1.25s ease-out forwards;
+        }
+        @keyframes introCometRush {
+            0% { transform: translate(-60vw, 20vh) rotate(-12deg); }
+            100% { transform: translate(60vw, -25vh) rotate(-12deg); }
+        }
+        .intro-scene-asteroid::before {
+            opacity: 1;
+            background:
+                radial-gradient(circle at 20% 45%, rgba(120,113,108,0.9) 0 18px, transparent 22px),
+                radial-gradient(circle at 60% 25%, rgba(120,113,108,0.8) 0 14px, transparent 19px),
+                radial-gradient(circle at 80% 60%, rgba(120,113,108,0.8) 0 16px, transparent 21px);
+            animation: introAsteroidField 1.2s ease-out forwards;
+        }
+        @keyframes introAsteroidField {
+            from { transform: scale(1.4) translateY(-40px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -241,6 +345,7 @@
     <!-- RARE INTRO OVERLAY -->
     <div id="rare-intro-overlay" class="fixed inset-0 z-[90] opacity-0 transition-opacity duration-500 hidden">
         <div class="w-full h-full flex items-center justify-center intro-backdrop">
+            <div id="intro-scene"></div>
             <div class="relative flex flex-col items-center">
                 <div class="w-40 h-40 rounded-full border-4 border-white/20 intro-ring"></div>
                 <div id="intro-core" class="absolute inset-4 rounded-full intro-core flex items-center justify-center text-center">
@@ -874,9 +979,10 @@
                 G.highestRarity = aura.chance;
             }
 
-            // Trigger rare intro for very rare auras (1 in 1,000 or higher)
-            if (aura.chance >= 1000) {
+            // Trigger cinematic intro + background for ultra-rare auras (1 in 5,000 or higher)
+            if (aura.chance >= 5000) {
                 IntroFX.play(aura);
+                BackgroundFX.playDrop(aura);
             }
             
             // Controlled dust gain: apply multiplier but clamp per-roll gain
@@ -1417,7 +1523,7 @@
             const h = this.canvas.height;
             const cx = w / 2;
             const cy = h / 2;
-            const bgAura = G.bgAura;
+            const bgAura = BackgroundFX.currentAuraName();
             const auraDef = bgAura ? RARITIES.find(r => r.name === bgAura) : null;
             const isBlackHole = bgAura === 'Black Hole';
 
@@ -1505,6 +1611,24 @@
         }
     };
 
+    // --- AURA CINEMATIC THEME RESOLVER ---
+    const getAuraTheme = (aura) => {
+        const lower = aura.name.toLowerCase();
+        if (lower.includes('black hole') || lower.includes('singularity')) {
+            return { key: 'blackhole', label: 'GRAVITATIONAL SINGULARITY', sub: 'Event horizon forming. Matter collapse in progress...' };
+        }
+        if (lower.includes('meteor')) {
+            return { key: 'meteor', label: 'METEOR IMPACT TRAJECTORY', sub: 'Atmospheric burn detected. Impact vector locked...' };
+        }
+        if (lower.includes('comet')) {
+            return { key: 'comet', label: 'COMET TAIL IGNITION', sub: 'Frozen core accelerating. Ion trail shimmering...' };
+        }
+        if (lower.includes('asteroid')) {
+            return { key: 'asteroid', label: 'ASTEROID FIELD ENGAGED', sub: 'Rock clusters drifting across deep orbit...' };
+        }
+        return { key: 'generic', label: 'ULTRA-RARE AURA', sub: 'Reality turbulence rising. Cosmic resonance active...' };
+    };
+
     // --- RARE INTRO FX CONTROLLER ---
     const IntroFX = {
         timer: null,
@@ -1512,77 +1636,102 @@
             G.introPlaying = true;
             const overlay = document.getElementById('rare-intro-overlay');
             const core = document.getElementById('intro-core');
+            const scene = document.getElementById('intro-scene');
             const nameEl = document.getElementById('intro-name');
             const labelEl = document.getElementById('intro-label');
-            if (!overlay || !core || !nameEl || !labelEl) {
+            const subEl = document.getElementById('intro-sub');
+            if (!overlay || !core || !scene || !nameEl || !labelEl || !subEl) {
                 G.introPlaying = false;
                 return;
             }
 
-            // Configure theme based on aura
-            if (aura.name === 'Black Hole') {
+            const theme = getAuraTheme(aura);
+            scene.className = '';
+            scene.id = 'intro-scene';
+            if (theme.key !== 'generic') scene.classList.add(`intro-scene-${theme.key}`);
+
+            if (theme.key === 'blackhole') {
                 core.style.background = 'radial-gradient(circle at center, #000 0%, #0f172a 45%, #1e293b 80%)';
                 core.style.boxShadow = '0 0 40px rgba(59,130,246,0.7)';
-                labelEl.innerText = 'GRAVITATIONAL SINGULARITY';
             } else {
                 core.style.background = `radial-gradient(circle at center, ${aura.color} 0%, rgba(15,23,42,1) 70%)`;
                 core.style.boxShadow = `0 0 35px ${aura.color}aa`;
-                labelEl.innerText = 'RARE AURA DETECTED';
             }
-            nameEl.innerText = aura.name.toUpperCase();
 
-            // Show overlay briefly
+            nameEl.innerText = aura.name.toUpperCase();
+            labelEl.innerText = theme.label;
+            subEl.innerText = theme.sub;
+
             overlay.classList.remove('hidden');
             overlay.classList.add('intro-visible');
 
             if (this.timer) clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 overlay.classList.remove('intro-visible');
-                // Wait for fade-out then hide to free view
                 setTimeout(() => {
                     overlay.classList.add('hidden');
+                    scene.className = '';
+                    scene.id = 'intro-scene';
                     G.introPlaying = false;
                 }, 400);
-            }, 1400);
+            }, 1600);
         }
     };
 
     // --- BACKGROUND AURA CONTROLLER ---
     const BackgroundFX = {
+        rollAura: null,
+        rollTimer: null,
         equip(name) {
             G.bgAura = name;
             Engine.save();
             this.apply();
-            // Refresh backgrounds modal labels
             Modals.renderBackgrounds();
             Engine.notify(`Background aura equipped: ${name}`, '#a855f7');
+        },
+        playDrop(aura) {
+            this.rollAura = aura.name;
+            this.apply();
+            if (this.rollTimer) clearTimeout(this.rollTimer);
+            this.rollTimer = setTimeout(() => {
+                this.rollAura = null;
+                this.apply();
+            }, 12000);
+        },
+        currentAuraName() {
+            return this.rollAura || G.bgAura || null;
         },
         apply() {
             const gradEl = document.getElementById('aura-gradient');
             if (!gradEl) return;
 
-            // Clear previous classes
-            gradEl.classList.remove('bg-aura-generic', 'bg-aura-blackhole');
+            gradEl.classList.remove('bg-aura-generic', 'bg-aura-blackhole', 'bg-aura-meteor', 'bg-aura-comet', 'bg-aura-asteroid');
 
-            const auraName = G.bgAura;
+            const auraName = this.currentAuraName();
             if (!auraName) {
-                // Default subtle nebula
                 gradEl.style.background = 'radial-gradient(circle at center, rgba(56,189,248,0.25) 0%, transparent 60%)';
                 return;
             }
 
             const aura = RARITIES.find(r => r.name === auraName);
             const baseColor = aura ? aura.color : '#38bdf8';
+            const theme = aura ? getAuraTheme(aura).key : 'generic';
 
-            if (auraName === 'Black Hole') {
+            if (theme === 'blackhole') {
                 gradEl.classList.add('bg-aura-blackhole');
+            } else if (theme === 'meteor') {
+                gradEl.classList.add('bg-aura-meteor');
+            } else if (theme === 'comet') {
+                gradEl.classList.add('bg-aura-comet');
+            } else if (theme === 'asteroid') {
+                gradEl.classList.add('bg-aura-asteroid');
             } else {
                 gradEl.classList.add('bg-aura-generic');
                 gradEl.style.background = `radial-gradient(circle at center, ${baseColor}44 0%, transparent 60%)`;
             }
         }
     };
-    // --- START ---
+// --- START ---
     window.onload = () => Engine.init();
 </script>
 </body>
