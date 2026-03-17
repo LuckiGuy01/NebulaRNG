@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula RNG | Ultimate Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        :root {
+            --bg-black: #020204;
+        }
+
+        body {
+            background-color: var(--bg-black);
+            color: #f8fafc;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* --- LAYOUT --- */
+        #main-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding-bottom: 220px;
+        }
+
+        #roll-result-container {
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+        }
+
+        #controls-anchor {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            z-index: 20;
+            padding: 0 20px;
+        }
+
+        #history-dock {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: rgba(5, 5, 8, 0.85);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 30;
+            overflow-x: auto;
+            white-space: nowrap;
+            gap: 8px;
+        }
+
+        /* --- AURA EFFECTS & ANIMATIONS --- */
+        .aura-text {
+            line-height: 0.9;
+            transition: color 0.1s, transform 0.1s, text-shadow 0.1s;
+            will-change: transform, color, text-shadow;
+        }
+
+        .scrambling {
+            filter: blur(4px);
+            transform: scale(0.95) translateY(-10px);
+            opacity: 0.8;
+        }
+
+        .result-pop {
+            animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5) translateY(20px); filter: blur(10px); opacity: 0; }
+            50% { transform: scale(1.1) translateY(-5px); filter: blur(0px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); filter: blur(0px); opacity: 1; }
+        }
+
+        .rarity-badge {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 4px 16px;
+            border-radius: 99px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            transition: opacity 0.3s;
+        }
+
+        /* --- BUTTONS --- */
+        .btn-nebula {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-nebula:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.4);
+        }
+        .btn-nebula:active:not(:disabled) { transform: scale(0.97); }
+        .btn-nebula:disabled { filter: grayscale(1) opacity(0.5); cursor: not-allowed; }
+
+        .btn-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .btn-panel:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+
+        .btn-auto-active {
+            background: rgba(59, 130, 246, 0.2) !important;
+            border-color: rgba(59, 130, 246, 0.5) !important;
+            color: #60a5fa;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+            animation: pulse-auto 2s infinite;
+        }
+
+        @keyframes pulse-auto {
+            0% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); }
+            100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        .modal-overlay {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+        }
+
+        .notification {
+            animation: slideInDown 0.3s ease-out forwards, fadeOut 0.5s ease-in 2.5s forwards;
+        }
+
+        @keyframes slideInDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; visibility: hidden; }
+        }
+
+        /* --- RARE INTRO & BACKGROUND FX --- */
+        #rare-intro-overlay {
+            pointer-events: none;
+        }
+        .intro-visible {
+            opacity: 1 !important;
+        }
+        .intro-backdrop {
+            background: radial-gradient(circle at center, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.98) 40%, rgba(0,0,0,0.98) 100%);
+        }
+        .intro-core {
+            animation: introPulse 1.8s ease-out forwards;
+        }
+        @keyframes introPulse {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; filter: blur(10px); }
+            40% { transform: scale(1.2) rotate(180deg); opacity: 1; filter: blur(0); }
+            100% { transform: scale(1) rotate(360deg); opacity: 1; filter: blur(0); }
+        }
+        .intro-ring {
+            animation: introRing 2s ease-out forwards;
+        }
+        @keyframes introRing {
+            0% { transform: scale(0.2); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        /* Background aura themes */
+        .bg-aura-generic {
+            opacity: 0.5;
+            mix-blend-mode: screen;
+            animation: bgNebulaDrift 24s ease-in-out infinite;
+        }
+        @keyframes bgNebulaDrift {
+            0% { transform: translate3d(-20px, -10px, 0) scale(1); filter: hue-rotate(0deg) blur(0px); }
+            50% { transform: translate3d(20px, 10px, 0) scale(1.07); filter: hue-rotate(45deg) blur(1px); }
+            100% { transform: translate3d(-20px, -10px, 0) scale(1); filter: hue-rotate(0deg) blur(0px); }
+        }
+
+        .bg-aura-blackhole {
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            background:
+                radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(15,23,42,0.98) 45%, transparent 65%),
+                radial-gradient(circle at center, rgba(59,130,246,0.5) 0%, transparent 55%),
+                radial-gradient(circle at center, rgba(129,140,248,0.35) 0%, transparent 70%);
+            animation: bgBlackHoleSpin 18s linear infinite;
+        }
+        @keyframes bgBlackHoleSpin {
+            0% { transform: rotate(0deg) scale(1); filter: blur(0px); }
+            50% { transform: rotate(180deg) scale(1.05); filter: blur(1px); }
+            100% { transform: rotate(360deg) scale(1); filter: blur(0px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- VISUAL FX LAYER -->
+    <canvas id="starfield" class="fixed inset-0 -z-10"></canvas>
+    <div id="aura-gradient" class="fixed inset-0 -z-20 transition-all duration-1000 opacity-20"></div>
+
+    <!-- RARE INTRO OVERLAY -->
+    <div id="rare-intro-overlay" class="fixed inset-0 z-[90] opacity-0 transition-opacity duration-500 hidden">
+        <div class="w-full h-full flex items-center justify-center intro-backdrop">
+            <div class="relative flex flex-col items-center">
+                <div class="w-40 h-40 rounded-full border-4 border-white/20 intro-ring"></div>
+                <div id="intro-core" class="absolute inset-4 rounded-full intro-core flex items-center justify-center text-center">
+                    <div class="w-full h-full rounded-full bg-gradient-to-br from-slate-100 to-slate-500 mix-blend-screen opacity-70"></div>
+                </div>
+                <div class="mt-6 text-center">
+                    <p id="intro-label" class="text-xs font-bold tracking-[0.3em] uppercase text-slate-400 mb-2">RARE AURA DETECTED</p>
+                    <h3 id="intro-name" class="text-2xl md:text-3xl font-black italic text-white drop-shadow-lg"></h3>
+                    <p id="intro-sub" class="mt-1 text-[11px] md:text-xs text-slate-300 font-medium">Temporal anomaly engaged. Reality bending...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION ANCHOR -->
+    <div id="notif-anchor" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[200] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- HEADER: STATS -->
+    <header class="w-full p-6 flex justify-between items-start z-50">
+        <div class="flex flex-col gap-1">
+            <h1 class="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 filter drop-shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+                NEBULA <span class="text-white">RNG</span>
+            </h1>
+            <div class="flex flex-wrap gap-4 text-xs font-bold text-slate-500 uppercase mt-1">
+                <span class="bg-white/5 px-3 py-1 rounded-full border border-white/5">Rolls: <span id="stat-rolls" class="text-white">0</span></span>
+                <span class="bg-white/5 px-3 py-1 rounded-full border border-white/5">Luck: <span id="stat-luck" class="text-green-400">1.0x</span></span>
+                <span class="bg-white/5 px-3 py-1 rounded-full border border-white/5">Dust: <span id="stat-dust" class="text-yellow-400">0</span></span>
+                <span class="bg-white/5 px-3 py-1 rounded-full border border-white/5">Score: <span id="stat-score" class="text-purple-400">0</span></span>
+            </div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+            <div id="weather-tag" class="px-4 py-2 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors">
+                Scanning Skies...
+            </div>
+            <button onclick="Modals.open('reset')" class="mt-2 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-red-500/40 text-red-300 bg-red-900/20 hover:bg-red-700/40 hover:text-red-100 transition-colors">
+                Reset Data
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN DISPLAY -->
+    <main id="main-stage">
+        <div id="roll-result-container">
+            <div id="aura-badge" class="rarity-badge mb-4 opacity-0">READY TO ROLL</div>
+            <h2 id="aura-name" class="aura-text text-5xl md:text-8xl lg:text-9xl font-black italic tracking-tighter text-white">
+                START
+            </h2>
+            <p id="aura-desc" class="text-slate-400 mt-6 max-w-md mx-auto text-sm md:text-base font-medium opacity-0 tracking-wide"></p>
+        </div>
+    </main>
+
+    <!-- CONTROLS -->
+    <section id="controls-anchor">
+        <div class="mb-5 bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-md">
+            <div class="flex justify-between text-xs font-black uppercase mb-2 px-1 tracking-wider">
+                <span class="text-purple-400">Pity Protocol</span>
+                <span id="pity-text" class="text-white">0 / 100</span>
+            </div>
+            <div class="h-2 w-full bg-black/50 rounded-full overflow-hidden border border-white/10">
+                <div id="pity-bar" class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 w-0 transition-all duration-300 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
+            </div>
+        </div>
+
+        <button id="roll-btn" class="btn-nebula w-full py-6 rounded-2xl text-4xl font-black tracking-tighter text-white">
+            ROLL
+        </button>
+        
+        <div class="grid grid-cols-6 gap-2 mt-3">
+            <button onclick="Modals.open('shop')" class="btn-panel">Shop</button>
+            <button onclick="Modals.open('craft')" class="btn-panel">Craft</button>
+            <button id="auto-btn" class="btn-panel">Auto</button>
+            <button onclick="Modals.open('archives')" class="btn-panel">Index</button>
+            <button onclick="Modals.open('achievements')" class="btn-panel">Medals</button>
+            <button onclick="Modals.open('backgrounds')" class="btn-panel">Auras</button>
+        </div>
+    </section>
+
+    <!-- HISTORY LOG -->
+    <div id="history-dock">
+        <span class="text-[10px] font-black text-slate-500 uppercase mr-2 tracking-widest border-r border-white/10 pr-4">Log</span>
+        <!-- History Items Inserted Here -->
+    </div>
+
+    <!-- MODAL: SHOP -->
+    <div id="modal-shop" class="modal-overlay fixed inset-0 z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-white/10 w-full max-w-3xl rounded-3xl p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div>
+                    <h2 class="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-500">COSMIC EXCHANGE</h2>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Upgrade your core systems using Stardust.</p>
+                </div>
+                <button onclick="Modals.close('shop')" class="text-slate-400 hover:text-white transition-colors p-2">&times; CLOSE</button>
+            </div>
+            <div id="shop-items" class="grid gap-3 overflow-y-auto pr-2 flex-1">
+                <!-- Upgrades injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CRAFTING -->
+    <div id="modal-craft" class="modal-overlay fixed inset-0 z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-white/10 w-full max-w-4xl rounded-3xl p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div>
+                    <h2 class="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-500">STELLAR FORGE</h2>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Combine auras to forge powerful artifacts.</p>
+                </div>
+                <button onclick="Modals.close('craft')" class="text-slate-400 hover:text-white transition-colors p-2">&times; CLOSE</button>
+            </div>
+            <div id="craft-items" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pr-2 flex-1">
+                <!-- Crafting recipes injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ARCHIVES -->
+    <div id="modal-archives" class="modal-overlay fixed inset-0 z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-white/10 w-full max-w-6xl rounded-3xl p-6 md:p-8 h-[90vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div class="flex items-end gap-4">
+                    <h2 class="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">THE GREAT INDEX</h2>
+                    <span class="text-sm font-bold text-slate-500 mb-1">Discovered: <span id="archive-progress" class="text-white">0</span> / 100</span>
+                </div>
+                <button onclick="Modals.close('archives')" class="text-slate-400 hover:text-white transition-colors p-2">&times; CLOSE</button>
+            </div>
+            <div id="archives-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 overflow-y-auto pr-2 flex-1 pb-10">
+                <!-- Catalog items injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ACHIEVEMENTS -->
+    <div id="modal-achievements" class="modal-overlay fixed inset-0 z-[100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-white/10 w-full max-w-4xl rounded-3xl p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div>
+                    <h2 class="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500">MEDALS OF HONOR</h2>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Unlock permanent multipliers by reaching milestones.</p>
+                </div>
+                <button onclick="Modals.close('achievements')" class="text-slate-400 hover:text-white transition-colors p-2">&times; CLOSE</button>
+            </div>
+            <div class="mb-4 p-4 bg-white/5 rounded-xl border border-white/5 flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-400 uppercase">Total Achievement Luck Bonus:</span>
+                <span id="ach-luck-bonus" class="text-xl font-black text-green-400">+0.00x</span>
+            </div>
+            <div id="achievements-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto pr-2 flex-1">
+                <!-- Achievements injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BACKGROUND AURAS -->
+    <div id="modal-backgrounds" class="modal-overlay fixed inset-0 z-[120] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-white/10 w-full max-w-4xl rounded-3xl p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div>
+                    <h2 class="text-3xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-500">AURA BACKGROUNDS</h2>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Equip rare auras as animated backgrounds. Cosmetic only.</p>
+                </div>
+                <button onclick="Modals.close('backgrounds')" class="text-slate-400 hover:text-white transition-colors p-2">&times; CLOSE</button>
+            </div>
+            <div id="backgrounds-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto pr-2 flex-1">
+                <!-- Background auras injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RESET CONFIRMATION -->
+    <div id="modal-reset" class="modal-overlay fixed inset-0 z-[150] hidden flex items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-[#050508] border border-red-500/40 w-full max-w-lg rounded-3xl p-6 md:p-8 shadow-2xl">
+            <div class="flex items-start gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-red-900/40 border border-red-500/60 flex items-center justify-center text-red-300 text-2xl">
+                    !
+                </div>
+                <div>
+                    <h2 class="text-2xl font-black italic text-red-300">Warning: Permanent Reset</h2>
+                    <p class="mt-2 text-xs md:text-sm font-medium text-slate-300">
+                        This will <span class="font-bold text-red-400">erase all progress</span> including Stardust, medals, crafted gear, upgrades, and discoveries on this device.
+                        This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 rounded-xl bg-red-900/30 border border-red-500/40 text-[11px] md:text-xs text-red-100 font-semibold uppercase tracking-widest">
+                Type of reset: <span class="text-white">Local Save Wipe (Single Device)</span>
+            </div>
+            <div class="mt-6 flex flex-col md:flex-row gap-3 justify-end">
+                <button onclick="Modals.close('reset')" class="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-xs font-black uppercase tracking-widest text-slate-200 hover:bg-white/10">
+                    Cancel
+                </button>
+                <button onclick="Engine.resetData()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-black uppercase tracking-widest text-white shadow-[0_0_20px_rgba(220,38,38,0.6)]">
+                    Yes, Erase Everything
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    /**
+     * NEBULA RNG - ULTIMATE ENGINE SCRIPT v5.1 (bugfixed)
+     */
+    const CONFIG = {
+        // Pity now triggers every 10 rolls by default
+        PITY_LIMIT: 10,
+        SAVE_KEY: 'nebula_v5_local',
+        // Slow, readable roll animation (item switching)
+        SCRAMBLE_DURATION: 1600, // MS total scramble time
+        SCRAMBLE_INTERVAL: 120, // MS between each name switch (slower = more readable)
+        ROLL_COOLDOWN_MS: 1000 // 1 second cooldown between rolls
+    };
+    // 100 Rarities spanning massive conceptual scales
+    const RARITIES = [
+        // Tier 1: Mundane (1 - 10)
+        { id: 0, name: "Breeze", chance: 1, color: "#cbd5e1", dust: 1, desc: "A slight movement of air." },
+        { id: 1, name: "Pebble", chance: 2, color: "#94a3b8", dust: 2, desc: "A small, smooth stone." },
+        { id: 2, name: "Dewdrop", chance: 3, color: "#bae6fd", dust: 3, desc: "Morning condensation." },
+        { id: 3, name: "Leaf", chance: 4, color: "#86efac", dust: 4, desc: "Fallen foliage." },
+        { id: 4, name: "Spark", chance: 5, color: "#fca5a5", dust: 5, desc: "A tiny fleck of fire." },
+        { id: 5, name: "Ripple", chance: 6, color: "#7dd3fc", dust: 6, desc: "A small wave on water." },
+        { id: 6, name: "Dust Mote", chance: 7, color: "#d6d3d1", dust: 7, desc: "Floating in a sunbeam." },
+        { id: 7, name: "Gust", chance: 8, color: "#64748b", dust: 8, desc: "A sudden strong wind." },
+        { id: 8, name: "Frost", chance: 9, color: "#e0f2fe", dust: 9, desc: "Ice crystals on a surface." },
+        { id: 9, name: "Ember", chance: 10, color: "#f87171", dust: 10, desc: "A glowing, hot coal." },
+        // Tier 2: Elemental (15 - 100)
+        { id: 10, name: "Cloud", chance: 15, color: "#f1f5f9", dust: 15, desc: "Condensed water vapor." },
+        { id: 11, name: "Rain", chance: 20, color: "#38bdf8", dust: 20, desc: "Liquid water droplets." },
+        { id: 12, name: "Snowflake", chance: 25, color: "#ffffff", dust: 25, desc: "A feathery ice crystal." },
+        { id: 13, name: "Flame", chance: 35, color: "#ef4444", dust: 35, desc: "Visible, glowing gas." },
+        { id: 14, name: "Stone", chance: 45, color: "#a8a29e", dust: 45, desc: "Solid mineral matter." },
+        { id: 15, name: "Breeze", chance: 55, color: "#bbf7d0", dust: 55, desc: "A gentle wind." },
+        { id: 16, name: "Mist", chance: 70, color: "#e2e8f0", dust: 70, desc: "A phenomenon caused by small droplets." },
+        { id: 17, name: "Hail", chance: 85, color: "#ccfbf1", dust: 85, desc: "Solid precipitation." },
+        { id: 18, name: "Lightning", chance: 100, color: "#fef08a", dust: 100, desc: "An electrostatic discharge." },
+        
+        // Tier 3: Terrestrial (200 - 1,000)
+        { id: 19, name: "Storm", chance: 200, color: "#475569", dust: 250, desc: "A turbulent atmospheric state." },
+        { id: 20, name: "Gale", chance: 300, color: "#94a3b8", dust: 350, desc: "A very strong wind." },
+        { id: 21, name: "Blizzard", chance: 400, color: "#f8fafc", dust: 450, desc: "A severe snowstorm." },
+        { id: 22, name: "Tornado", chance: 500, color: "#64748b", dust: 550, desc: "A rapidly rotating column of air." },
+        { id: 23, name: "Earthquake", chance: 600, color: "#d97706", dust: 650, desc: "Seismic waves traveling." },
+        { id: 24, name: "Volcano", chance: 700, color: "#dc2626", dust: 750, desc: "A rupture in the crust." },
+        { id: 25, name: "Tsunami", chance: 800, color: "#0284c7", dust: 850, desc: "A series of massive waves." },
+        { id: 26, name: "Hurricane", chance: 900, color: "#0ea5e9", dust: 950, desc: "A massive storm system." },
+        { id: 27, name: "Meteor", chance: 1000, color: "#f59e0b", dust: 1500, desc: "A streak of light in the sky." },
+        // Tier 4: Celestial Base (2,500 - 10,000)
+        { id: 28, name: "Stardust", chance: 2500, color: "#fbcfe8", dust: 3000, desc: "Cosmic dust particles." },
+        { id: 29, name: "Comet", chance: 3500, color: "#67e8f9", dust: 4000, desc: "An icy small Solar System body." },
+        { id: 30, name: "Asteroid", chance: 5000, color: "#78716c", dust: 6000, desc: "A minor planet." },
+        { id: 31, name: "Moonlight", chance: 6500, color: "#e9d5ff", dust: 7500, desc: "Light reflected from the moon." },
+        { id: 32, name: "Solar Wind", chance: 8000, color: "#fcd34d", dust: 9000, desc: "A stream of charged particles." },
+        { id: 33, name: "Aurora", chance: 10000, color: "#34d399", dust: 12000, desc: "A natural light display in the sky." },
+        // Tier 5: Stellar (25,000 - 100,000)
+        { id: 34, name: "Red Dwarf", chance: 25000, color: "#f87171", dust: 30000, desc: "A small and relatively cool star." },
+        { id: 35, name: "White Dwarf", chance: 40000, color: "#f8fafc", dust: 45000, desc: "A stellar core remnant." },
+        { id: 36, name: "Yellow Dwarf", chance: 55000, color: "#fbbf24", dust: 60000, desc: "A main-sequence star like our Sun." },
+        { id: 37, name: "Blue Giant", chance: 75000, color: "#60a5fa", dust: 80000, desc: "A hot, massive, and luminous star." },
+        { id: 38, name: "Red Supergiant", chance: 100000, color: "#ef4444", dust: 150000, desc: "An aging giant star." },
+        // Tier 6: Galactic Phenomena (250,000 - 1,000,000)
+        { id: 39, name: "Solar Flare", chance: 250000, color: "#f97316", dust: 300000, desc: "A sudden flash of increased brightness." },
+        { id: 40, name: "Pulsar", chance: 400000, color: "#c084fc", dust: 450000, desc: "A highly magnetized rotating neutron star." },
+        { id: 41, name: "Magnetar", chance: 600000, color: "#a855f7", dust: 650000, desc: "A neutron star with an extremely powerful magnetic field." },
+        { id: 42, name: "Quasar", chance: 800000, color: "#fb923c", dust: 850000, desc: "An extremely luminous active galactic nucleus." },
+        { id: 43, name: "Supernova", chance: 1000000, color: "#f43f5e", dust: 1500000, desc: "A powerful and luminous stellar explosion." },
+        // Tier 7: Deep Space (2,500,000 - 10,000,000)
+        { id: 44, name: "Nebula", chance: 2500000, color: "#d946ef", dust: 3000000, desc: "A giant cloud of dust and gas in space." },
+        { id: 45, name: "Hypernova", chance: 4000000, color: "#e11d48", dust: 4500000, desc: "An exceptionally energetic supernova." },
+        { id: 46, name: "Dark Matter", chance: 6000000, color: "#312e81", dust: 6500000, desc: "Non-luminous material postulated in space." },
+        { id: 47, name: "Antimatter", chance: 8000000, color: "#8b5cf6", dust: 8500000, desc: "Material composed of antiparticles." },
+        { id: 48, name: "Black Hole", chance: 10000000, color: "#000000", dust: 15000000, desc: "A region of spacetime where gravity is immense." },
+        // Tier 8: Anomalous Physics (25,000,000 - 100,000,000)
+        { id: 49, name: "Event Horizon", chance: 25000000, color: "#4f46e5", dust: 30000000, desc: "A boundary beyond which events cannot affect an observer." },
+        { id: 50, name: "Singularity", chance: 40000000, color: "#e0e7ff", dust: 45000000, desc: "A point of infinite density." },
+        { id: 51, name: "Wormhole", chance: 60000000, color: "#14b8a6", dust: 65000000, desc: "A theoretical passage through spacetime." },
+        { id: 52, name: "Tachyon", chance: 80000000, color: "#2dd4bf", dust: 85000000, desc: "A hypothetical particle that travels faster than light." },
+        { id: 53, name: "Quantum Foam", chance: 100000000, color: "#6ee7b7", dust: 150000000, desc: "The foundational fabric of the universe." },
+        // Tier 9: Dimensional Theories (250,000,000 - 1,000,000,000)
+        { id: 54, name: "String Theory", chance: 250000000, color: "#d946ef", dust: 300000000, desc: "One-dimensional extended objects." },
+        { id: 55, name: "Brane", chance: 400000000, color: "#c4b5fd", dust: 450000000, desc: "A physical object that generalizes the notion of a point particle." },
+        { id: 56, name: "Parallel Universe", chance: 600000000, color: "#fce7f3", dust: 650000000, desc: "A hypothetical self-contained plane of existence." },
+        { id: 57, name: "Pocket Dimension", chance: 800000000, color: "#a5b4fc", dust: 850000000, desc: "A small, isolated pocket of spacetime." },
+        { id: 58, name: "Multiverse", chance: 1000000000, color: "#fda4af", dust: 1500000000, desc: "The hypothetical set of all universes." },
+        // Tier 10: Abstract Concepts (2,500,000,000 - 10,000,000,000)
+        { id: 59, name: "Entropy", chance: 2500000000, color: "#9ca3af", dust: 3000000000, desc: "The degree of disorder or randomness." },
+        { id: 60, name: "Absolute Zero", chance: 4000000000, color: "#ccfbf1", dust: 4500000000, desc: "The lowest limit of the thermodynamic temperature scale." },
+        { id: 61, name: "Time Dilation", chance: 6000000000, color: "#fde047", dust: 6500000000, desc: "A difference in the elapsed time measured by two observers." },
+        { id: 62, name: "Omniverse", chance: 8000000000, color: "#ffffff", dust: 8500000000, desc: "The concept of every universe conceptually possible." },
+        { id: 63, name: "Aether", chance: 10000000000, color: "#f3e8ff", dust: 15000000000, desc: "The material that fills the region of the universe." },
+        // Tier 11: Divine & Mythological (25,000,000,000 - 100,000,000,000)
+        { id: 64, name: "Yggdrasil", chance: 25000000000, color: "#4ade80", dust: 30000000000, desc: "An immense and central sacred tree." },
+        { id: 65, name: "Valhalla", chance: 40000000000, color: "#fbbf24", dust: 45000000000, desc: "A majestic, enormous hall located in Asgard." },
+        { id: 66, name: "Elysium", chance: 60000000000, color: "#fef08a", dust: 65000000000, desc: "A conception of the afterlife." },
+        { id: 67, name: "Tartarus", chance: 80000000000, color: "#7f1d1d", dust: 85000000000, desc: "A deep abyss used as a dungeon of torment." },
+        { id: 68, name: "Chronos", chance: 100000000000, color: "#fef08a", dust: 150000000000, desc: "The personification of time." },
+        // Tier 12: Ultimate Reality (250,000,000,000 - 100,000,000,000,000)
+        { id: 69, name: "Genesis", chance: 250000000000, color: "#fff7ed", dust: 300000000000, desc: "The origin or mode of formation of something." },
+        { id: 70, name: "Oblivion", chance: 500000000000, color: "#020617", dust: 650000000000, desc: "The state of being unaware or unconscious." },
+        { id: 71, name: "Nirvana", chance: 1000000000000, color: "#e879f9", dust: 1500000000000, desc: "A transcendent state." },
+        { id: 72, name: "The Void", chance: 5000000000000, color: "#171717", dust: 6000000000000, desc: "Absolute nothingness." },
+        { id: 73, name: "Alpha", chance: 10000000000000, color: "#38bdf8", dust: 15000000000000, desc: "The beginning." },
+        { id: 74, name: "Omega", chance: 50000000000000, color: "#ef4444", dust: 60000000000000, desc: "The end." },
+        { id: 75, name: "Infinity", chance: 100000000000000, color: "#ffffff", dust: 99999999999999, desc: "Boundless, limitless, endless." },
+        
+        // Filler to hit 100 (Conceptual Sub-variants)
+        { id: 76, name: "Crimson Moon", chance: 15000, color: "#dc2626", dust: 18000, desc: "A moon bathed in red." },
+        { id: 77, name: "Azure Star", chance: 85000, color: "#3b82f6", dust: 90000, desc: "A star of pure blue energy." },
+        { id: 78, name: "Emerald Comet", chance: 12000, color: "#10b981", dust: 14000, desc: "A comet leaving a green trail." },
+        { id: 79, name: "Golden Flare", chance: 350000, color: "#f59e0b", dust: 400000, desc: "A solar flare composed of golden light." },
+        { id: 80, name: "Violet Quasar", chance: 950000, color: "#8b5cf6", dust: 1000000, desc: "A quasar emitting purple radiation." },
+        { id: 81, name: "Shadow Realm", chance: 7000000, color: "#1e293b", dust: 8000000, desc: "A dimension of pure darkness." },
+        { id: 82, name: "Prismatic Core", chance: 15000000, color: "#ec4899", dust: 18000000, desc: "A core that reflects all colors." },
+        { id: 83, name: "Crystal Matrix", chance: 35000000, color: "#06b6d4", dust: 40000000, desc: "A structural lattice of pure energy." },
+        { id: 84, name: "Ethereal Echo", chance: 75000000, color: "#8b5cf6", dust: 80000000, desc: "A sound that reverberates across time." },
+        { id: 85, name: "Celestial Chord", chance: 150000000, color: "#f472b6", dust: 180000000, desc: "A harmonious vibration of the universe." },
+        { id: 86, name: "Astral Projection", chance: 350000000, color: "#c084fc", dust: 400000000, desc: "Consciousness separated from the body." },
+        { id: 87, name: "Cosmic Web", chance: 750000000, color: "#64748b", dust: 800000000, desc: "The large-scale structure of the universe." },
+        { id: 88, name: "Hypercube", chance: 1500000000, color: "#38bdf8", dust: 1800000000, desc: "A four-dimensional analog of a cube." },
+        { id: 89, name: "Tesseract", chance: 3500000000, color: "#2dd4bf", dust: 4000000000, desc: "A specific type of hypercube." },
+        { id: 90, name: "Klein Bottle", chance: 7500000000, color: "#a78bfa", dust: 8000000000, desc: "A non-orientable surface." },
+        { id: 91, name: "Möbius Strip", chance: 15000000000, color: "#fca5a5", dust: 18000000000, desc: "A surface with only one side." },
+        { id: 92, name: "Fractal", chance: 35000000000, color: "#4ade80", dust: 40000000000, desc: "A never-ending pattern." },
+        { id: 93, name: "Mandelbrot Set", chance: 75000000000, color: "#fbbf24", dust: 80000000000, desc: "A complex set of numbers." },
+        { id: 94, name: "Fibonacci Sequence", chance: 150000000000, color: "#fb7185", dust: 180000000000, desc: "A series of numbers reflecting nature." },
+        { id: 95, name: "Golden Ratio", chance: 350000000000, color: "#facc15", dust: 400000000000, desc: "The perfect mathematical proportion." },
+        { id: 96, name: "Pi", chance: 750000000000, color: "#34d399", dust: 800000000000, desc: "An irrational, transcendent number." },
+        { id: 97, name: "Eureka", chance: 1500000000000, color: "#e879f9", dust: 1800000000000, desc: "A sudden revelation." },
+        { id: 98, name: "Epiphany", chance: 3500000000000, color: "#c084fc", dust: 4000000000000, desc: "A moment of sudden insight." },
+        { id: 99, name: "Enlightenment", chance: 7500000000000, color: "#ffffff", dust: 8000000000000, desc: "Ultimate spiritual knowledge." }
+    ];
+    // Ensure sorted by chance for RNG algorithm
+    RARITIES.sort((a, b) => a.chance - b.chance);
+    const UPGRADES = [
+        // LUCK
+        { id: 'luck_1', name: 'Optic Sensor', type: 'luck', cost: 50, inc: 0.1, max: 20, icon: '👁️' },
+        { id: 'luck_2', name: 'Probability Drive', type: 'luck', cost: 500, inc: 0.5, max: 20, icon: '🎲' },
+        { id: 'luck_3', name: 'Quantum Core', type: 'luck', cost: 5000, inc: 2.0, max: 15, icon: '🔮' },
+        { id: 'luck_4', name: 'Reality Bender', type: 'luck', cost: 100000, inc: 10.0, max: 10, icon: '🌌' },
+        { id: 'luck_5', name: 'Acausality', type: 'luck', cost: 2500000, inc: 50.0, max: 10, icon: '⚛️' },
+        { id: 'luck_6', name: 'Fate Manipulator', type: 'luck', cost: 50000000, inc: 250.0, max: 5, icon: '🌟' },
+        { id: 'luck_7', name: 'Omniscience Node', type: 'luck', cost: 1000000000, inc: 1000.0, max: 5, icon: '👁️‍🗨️' },
+        
+        // SPEED
+        { id: 'speed_1', name: 'Pulse Motor', type: 'speed', cost: 100, inc: 0.05, max: 10, icon: '⚡' },
+        { id: 'speed_2', name: 'Tachyon Stream', type: 'speed', cost: 2000, inc: 0.05, max: 5, icon: '☄️' },
+        { id: 'speed_3', name: 'Time Dilation', type: 'speed', cost: 50000, inc: 0.02, max: 5, icon: '⏳' },
+        { id: 'speed_4', name: 'Warp Drive', type: 'speed', cost: 1000000, inc: 0.02, max: 5, icon: '🚀' },
+        
+        // PITY
+        { id: 'pity_1', name: 'Fate Adjuster', type: 'pity', cost: 250, inc: 2, max: 10, icon: '📉' },
+        { id: 'pity_2', name: 'Destiny Weaver', type: 'pity', cost: 5000, inc: 2, max: 15, icon: '🧵' },
+        { id: 'pity_3', name: 'Karmic Loop', type: 'pity', cost: 250000, inc: 1, max: 10, icon: '♻️' },
+        { id: 'pity_4', name: 'Guaranteed Future', type: 'pity', cost: 10000000, inc: 1, max: 10, icon: '🔮' },
+        
+        // DUST
+        { id: 'dust_1', name: 'Stardust Magnet', type: 'dust', cost: 150, inc: 0.2, max: 20, icon: '🧲' },
+        { id: 'dust_2', name: 'Nebula Harvester', type: 'dust', cost: 4000, inc: 0.5, max: 20, icon: '🚜' },
+        { id: 'dust_3', name: 'Dark Matter Scoop', type: 'dust', cost: 100000, inc: 1.0, max: 15, icon: '🥄' },
+        { id: 'dust_4', name: 'Void Siphon', type: 'dust', cost: 2500000, inc: 3.0, max: 10, icon: '🌪️' },
+        { id: 'dust_5', name: 'Cosmic Vacuum', type: 'dust', cost: 50000000, inc: 10.0, max: 5, icon: '🌀' },
+        
+        // AUTO (EXTREMELY CHEAP TO ENABLE QUICKLY)
+        { id: 'auto_1', name: 'Auto-Roller System', type: 'auto', cost: 20, inc: 1, max: 1, icon: '🤖' }
+    ];
+    const RECIPES = [
+        // Tier 1 Gear
+        { id: 'glove', name: 'Breeze Glove', cost: { dust: 200, items: { "Breeze": 5, "Leaf": 5 } }, bonus: '1.2x Luck', type: 'luck', val: 1.2 },
+        { id: 'boots', name: 'Rain Boots', cost: { dust: 500, items: { "Rain": 5, "Mist": 2 } }, bonus: '-5% Roll Speed', type: 'speed', val: -0.05 },
+        { id: 'bag', name: 'Stone Satchel', cost: { dust: 1000, items: { "Stone": 5, "Pebble": 10 } }, bonus: '1.2x Dust Gain', type: 'dust', val: 1.2 },
+        
+        // Tier 2 Gear
+        { id: 'pendant', name: 'Storm Pendant', cost: { dust: 3000, items: { "Storm": 5, "Lightning": 1 } }, bonus: '1.5x Luck', type: 'luck', val: 1.5 },
+        { id: 'ring', name: 'Meteor Ring', cost: { dust: 10000, items: { "Meteor": 3, "Stardust": 1 } }, bonus: '2.0x Luck', type: 'luck', val: 2.0 },
+        { id: 'cloak', name: 'Solar Cloak', cost: { dust: 25000, items: { "Solar Wind": 3, "Aurora": 1 } }, bonus: '1.5x Pity Rate', type: 'pity_mult', val: 1.5 },
+        // Tier 3 Gear
+        { id: 'crown', name: 'Giant Crown', cost: { dust: 150000, items: { "Blue Giant": 2, "Red Supergiant": 1 } }, bonus: '5.0x Luck', type: 'luck', val: 5.0 },
+        { id: 'staff', name: 'Pulsar Staff', cost: { dust: 500000, items: { "Pulsar": 3, "Magnetar": 1 } }, bonus: '-15% Roll Speed', type: 'speed', val: -0.15 },
+        { id: 'core', name: 'Nebula Core', cost: { dust: 1000000, items: { "Nebula": 2, "Dark Matter": 1 } }, bonus: '3.0x Dust Gain', type: 'dust', val: 3.0 },
+        
+        // Tier 4 Gear
+        { id: 'relic', name: 'Singularity Relic', cost: { dust: 10000000, items: { "Singularity": 2, "Black Hole": 1 } }, bonus: '3.0x Pity Rate', type: 'pity_mult', val: 3.0 },
+        { id: 'prism', name: 'Quantum Prism', cost: { dust: 50000000, items: { "Quantum Foam": 3, "Tachyon": 1 } }, bonus: '15.0x Luck', type: 'luck', val: 15.0 },
+        { id: 'tesseract', name: 'Parallel Tesseract', cost: { dust: 200000000, items: { "Parallel Universe": 2, "String Theory": 2 } }, bonus: '10.0x Dust Gain', type: 'dust', val: 10.0 },
+        // Tier 5 Gear
+        { id: 'omega', name: 'Absolute Zero Matrix', cost: { dust: 1000000000, items: { "Absolute Zero": 1, "Entropy": 1 } }, bonus: '50.0x Luck', type: 'luck', val: 50.0 },
+        { id: 'chronometer', name: 'Chronos Dial', cost: { dust: 5000000000, items: { "Chronos": 1, "Aether": 1 } }, bonus: 'Ultra Fast Rolls', type: 'speed_override', val: 0.05 },
+        { id: 'genesis_seed', name: 'Seed of Genesis', cost: { dust: 25000000000, items: { "Genesis": 1, "Yggdrasil": 1 } }, bonus: '200.0x Luck', type: 'luck', val: 200.0 },
+        { id: 'infinity_gauntlet', name: 'The Void Gauntlet', cost: { dust: 100000000000, items: { "The Void": 1, "Oblivion": 1 } }, bonus: '1000.0x Luck', type: 'luck', val: 1000.0 }
+    ];
+    const ACHIEVEMENTS = [
+        { id: 'rolls_100', name: 'Warming Up', desc: 'Roll 100 times.', reqType: 'rolls', reqVal: 100, reward: 0.1 },
+        { id: 'rolls_1k', name: 'Avid Roller', desc: 'Roll 1,000 times.', reqType: 'rolls', reqVal: 1000, reward: 0.5 },
+        { id: 'rolls_10k', name: 'Addict', desc: 'Roll 10,000 times.', reqType: 'rolls', reqVal: 10000, reward: 2.0 },
+        { id: 'rolls_100k', name: 'Unstoppable', desc: 'Roll 100,000 times.', reqType: 'rolls', reqVal: 100000, reward: 5.0 },
+        
+        { id: 'dust_1k', name: 'Pocket Change', desc: 'Acquire 1,000 Stardust.', reqType: 'dust', reqVal: 1000, reward: 0.2 },
+        { id: 'dust_1m', name: 'Stardust Millionaire', desc: 'Acquire 1,000,000 Stardust.', reqType: 'dust', reqVal: 1000000, reward: 1.0 },
+        { id: 'dust_1b', name: 'Cosmic Billionaire', desc: 'Acquire 1,000,000,000 Stardust.', reqType: 'dust', reqVal: 1000000000, reward: 5.0 },
+        
+        { id: 'find_1k', name: 'Lucky Strike', desc: 'Find an aura rarer than 1 in 1,000.', reqType: 'rarity', reqVal: 1000, reward: 0.5 },
+        { id: 'find_100k', name: 'Astronomical', desc: 'Find an aura rarer than 1 in 100,000.', reqType: 'rarity', reqVal: 100000, reward: 2.0 },
+        { id: 'find_10m', name: 'Anomalous Entity', desc: 'Find an aura rarer than 1 in 10,000,000.', reqType: 'rarity', reqVal: 10000000, reward: 10.0 },
+        { id: 'find_1b', name: 'Universal Truth', desc: 'Find an aura rarer than 1 in 1,000,000,000.', reqType: 'rarity', reqVal: 1000000000, reward: 50.0 },
+        { id: 'craft_1', name: 'Tinkerer', desc: 'Craft your first item.', reqType: 'crafts', reqVal: 1, reward: 0.5 },
+        { id: 'craft_5', name: 'Artisan', desc: 'Craft 5 items.', reqType: 'crafts', reqVal: 5, reward: 2.0 },
+        { id: 'craft_10', name: 'Master Blacksmith', desc: 'Craft 10 items.', reqType: 'crafts', reqVal: 10, reward: 5.0 },
+        { id: 'craft_16', name: 'Omni-Crafter', desc: 'Craft all 16 items.', reqType: 'crafts', reqVal: 16, reward: 25.0 },
+        { id: 'discover_10', name: 'Observer', desc: 'Discover 10 unique auras.', reqType: 'discover', reqVal: 10, reward: 0.5 },
+        { id: 'discover_25', name: 'Astronomer', desc: 'Discover 25 unique auras.', reqType: 'discover', reqVal: 25, reward: 1.0 },
+        { id: 'discover_50', name: 'Cosmologist', desc: 'Discover 50 unique auras.', reqType: 'discover', reqVal: 50, reward: 3.0 },
+        { id: 'discover_75', name: 'Dimensional Traveler', desc: 'Discover 75 unique auras.', reqType: 'discover', reqVal: 75, reward: 10.0 },
+        { id: 'discover_100', name: 'The Omniscient', desc: 'Discover all 100 unique auras.', reqType: 'discover', reqVal: 100, reward: 100.0 }
+    ];
+    const WEATHERS = [
+        { name: "Clear Skies", mult: 1.0, color: "#ffffff" },
+        { name: "Meteor Shower", mult: 1.5, color: "#fbbf24" },
+        { name: "Void Eclipse", mult: 2.5, color: "#a855f7" },
+        { name: "Solar Flare", mult: 0.5, color: "#f87171" },
+        { name: "Quantum Fluctuations", mult: 5.0, color: "#10b981" },
+        { name: "Temporal Rift", mult: 10.0, color: "#38bdf8" }
+    ];
+    // --- GLOBAL STATE ---
+    let G = {
+        rolls: 0,
+        dust: 0,
+        pity: 0,
+        luckBase: 1.0,
+        inventory: {},
+        discovered: [],
+        upgrades: {},
+        gear: [],
+        achievements: [],
+        weatherIdx: 0,
+        autoEnabled: false,
+        isRolling: false,
+        highestRarity: 0,
+        bgAura: null,
+        introPlaying: false
+    };
+    // --- CORE ENGINE ---
+    const Engine = {
+        scrambleInterval: null,
+        lastRollTime: 0,
+        init() {
+            this.load();
+            this.startWeatherCycle();
+            this.updateUI();
+            Starfield.init();
+            this.bindEvents();
+            this.startAutoLoop();
+            this.loop();
+        },
+        bindEvents() {
+            const rollBtn = document.getElementById('roll-btn');
+            const autoBtn = document.getElementById('auto-btn');
+            if (rollBtn) rollBtn.onclick = () => this.roll();
+            if (autoBtn) autoBtn.onclick = () => this.toggleAuto();
+        },
+        startWeatherCycle() {
+            setInterval(() => {
+                G.weatherIdx = Math.floor(Math.random() * WEATHERS.length);
+                this.updateUI();
+            }, 120000);
+        },
+        startAutoLoop() {
+            setInterval(() => {
+                if (G.autoEnabled && !G.isRolling && !G.introPlaying) {
+                    this.roll();
+                }
+            }, 100);
+        },
+        getLuck() {
+            let luck = G.luckBase;
+            
+            // Base luck from upgrades (additive, but modest)
+            Object.keys(G.upgrades).forEach(id => {
+                const up = UPGRADES.find(u => u.id === id);
+                if (up && up.type === 'luck') luck += (G.upgrades[id] * up.inc);
+            });
+            
+            // Gear luck: use a soft logarithmic scaling so huge values don't explode
+            G.gear.forEach(gearId => {
+                const g = RECIPES.find(r => r.id === gearId);
+                if (g && g.type === 'luck') {
+                    const boost = Math.max(0, g.val - 1);
+                    const scaled = 1 + Math.log10(1 + boost); // diminishing returns
+                    luck *= scaled;
+                }
+            });
+
+            // Achievement luck: also scaled down with diminishing returns
+            let achRaw = 0;
+            G.achievements.forEach(achId => {
+                const a = ACHIEVEMENTS.find(x => x.id === achId);
+                if (a) achRaw += a.reward;
+            });
+            if (achRaw > 0) {
+                const achScale = 1 + Math.log10(1 + achRaw);
+                luck *= achScale;
+            }
+
+            // Weather multiplier
+            const w = WEATHERS[G.weatherIdx] || WEATHERS[0];
+            luck *= w.mult;
+            
+            // Global hard cap to prevent runaway luck
+            luck = Math.min(luck, 1000);
+
+            return Math.max(1, luck);
+        },
+        getSpeed() {
+            let speed = 1.0;
+            
+            Object.keys(G.upgrades).forEach(id => {
+                const up = UPGRADES.find(u => u.id === id);
+                if (up && up.type === 'speed') speed -= (G.upgrades[id] * up.inc);
+            });
+            G.gear.forEach(gearId => {
+                const g = RECIPES.find(r => r.id === gearId);
+                if (g && g.type === 'speed') speed += g.val;
+                if (g && g.type === 'speed_override') speed = g.val;
+            });
+            return Math.max(0.01, speed);
+        },
+        getDustMult() {
+            let mult = 1.0;
+
+            // Upgrades: additive
+            Object.keys(G.upgrades).forEach(id => {
+                const up = UPGRADES.find(u => u.id === id);
+                if (up && up.type === 'dust') mult += (G.upgrades[id] * up.inc);
+            });
+
+            // Gear: multiplicative but with global cap applied later
+            G.gear.forEach(gearId => {
+                const g = RECIPES.find(r => r.id === gearId);
+                if (g && g.type === 'dust') mult *= g.val;
+            });
+
+            // Prevent dust multiplier from becoming absurd
+            mult = Math.min(mult, 1000);
+            return mult;
+        },
+        getPityMult() {
+            let mult = 1.0;
+            G.gear.forEach(gearId => {
+                const g = RECIPES.find(r => r.id === gearId);
+                if (g && g.type === 'pity_mult') mult *= g.val;
+            });
+            return mult;
+        },
+        async roll() {
+            const now = Date.now();
+            // Prevent overlapping rolls or rolling during intro animation
+            if (G.isRolling || G.introPlaying) return;
+            // Enforce global cooldown between rolls (manual & auto)
+            if (this.lastRollTime && now - this.lastRollTime < CONFIG.ROLL_COOLDOWN_MS) return;
+            G.isRolling = true;
+            
+            const speedMult = this.getSpeed();
+            const luck = this.getLuck();
+            const btn = document.getElementById('roll-btn');
+            if (btn) btn.disabled = true;
+            this.startScrambler();
+            const rollWait = Math.max(50, CONFIG.SCRAMBLE_DURATION * speedMult);
+            await new Promise(r => setTimeout(r, rollWait));
+            this.stopScrambler();
+            G.rolls++;
+            G.pity += (1 * this.getPityMult());
+            
+            let result;
+            let pityBonus = 0;
+            Object.keys(G.upgrades).forEach(id => {
+                const up = UPGRADES.find(u => u.id === id);
+                if (up && up.type === 'pity') pityBonus += (G.upgrades[id] * up.inc);
+            });
+            // Base pity after 10 rolls; pity upgrades can reduce this, but not below 3
+            const pityThreshold = Math.max(3, CONFIG.PITY_LIMIT - pityBonus);
+            const pityTriggered = G.pity >= pityThreshold;
+            if (pityTriggered) {
+                G.pity = 0;
+            }
+
+            // If pity triggers, double the effective luck for this roll
+            const effectiveLuck = pityTriggered ? luck * 2 : luck;
+
+            const rng = Math.random() / effectiveLuck;
+            result = RARITIES[0];
+            for (let i = RARITIES.length - 1; i >= 0; i--) {
+                if (rng <= (1 / RARITIES[i].chance)) {
+                    result = RARITIES[i];
+                    break;
+                }
+            }
+            this.finalizeResult(result);
+            // Mark time roll completed for cooldown tracking
+            this.lastRollTime = Date.now();
+            G.isRolling = false;
+            if (btn) btn.disabled = false;
+        },
+        startScrambler() {
+            const nameEl = document.getElementById('aura-name');
+            const badgeEl = document.getElementById('aura-badge');
+            const descEl = document.getElementById('aura-desc');
+            
+            if (!nameEl) return;
+            nameEl.classList.add('scrambling');
+            nameEl.classList.remove('result-pop');
+            if (badgeEl) badgeEl.style.opacity = "0";
+            if (descEl) descEl.style.opacity = "0";
+            if (this.scrambleInterval) clearInterval(this.scrambleInterval);
+            this.scrambleInterval = setInterval(() => {
+                const r = RARITIES[Math.floor(Math.random() * Math.min(30, RARITIES.length))];
+                nameEl.innerText = r.name.toUpperCase();
+                nameEl.style.color = r.color;
+                nameEl.style.textShadow = `0 0 20px ${r.color}66`;
+            }, CONFIG.SCRAMBLE_INTERVAL);
+        },
+        stopScrambler() {
+            if (this.scrambleInterval) {
+                clearInterval(this.scrambleInterval);
+                this.scrambleInterval = null;
+            }
+            const nameEl = document.getElementById('aura-name');
+            if (nameEl) nameEl.classList.remove('scrambling');
+        },
+        finalizeResult(aura) {
+            G.inventory[aura.name] = (G.inventory[aura.name] || 0) + 1;
+            if (!G.discovered.includes(aura.name)) {
+                G.discovered.push(aura.name);
+                this.notify(`New Discovery: ${aura.name}!`, aura.color);
+            }
+            if (aura.chance > G.highestRarity) {
+                G.highestRarity = aura.chance;
+            }
+
+            // Trigger rare intro for very rare auras (1 in 1,000 or higher)
+            if (aura.chance >= 1000) {
+                IntroFX.play(aura);
+            }
+            
+            // Controlled dust gain: apply multiplier but clamp per-roll gain
+            const rawDustGain = aura.dust * this.getDustMult();
+            const dustGain = Math.min(Math.floor(rawDustGain), 1_000_000); // max 1M dust per roll
+            G.dust += dustGain;
+            this.renderResult(aura);
+            this.addHistory(aura);
+            this.checkAchievements();
+            this.updateUI();
+            this.save();
+            if (aura.chance >= 5000) {
+                Starfield.burst(aura.color, Math.min(100, aura.chance / 1000));
+            }
+        },
+        renderResult(aura) {
+            const nameEl = document.getElementById('aura-name');
+            const badgeEl = document.getElementById('aura-badge');
+            const descEl = document.getElementById('aura-desc');
+            const gradEl = document.getElementById('aura-gradient');
+            if (!nameEl) return;
+            nameEl.offsetWidth;
+            nameEl.classList.add('result-pop');
+            nameEl.innerText = aura.name.toUpperCase();
+            nameEl.style.color = aura.color;
+            nameEl.style.textShadow = `0 0 50px ${aura.color}`;
+            if (badgeEl) {
+                badgeEl.innerText = `1 in ${aura.chance.toLocaleString()}`;
+                badgeEl.style.opacity = "1";
+                badgeEl.style.borderColor = aura.color;
+                badgeEl.style.color = aura.color;
+                badgeEl.style.boxShadow = `0 0 20px ${aura.color}33 inset`;
+            }
+            if (descEl) {
+                descEl.innerText = aura.desc;
+                descEl.style.opacity = "1";
+            }
+            if (gradEl) {
+                gradEl.style.background = `radial-gradient(circle at center, ${aura.color}44 0%, transparent 60%)`;
+            }
+        },
+        addHistory(aura) {
+            const dock = document.getElementById('history-dock');
+            if (!dock) return;
+            const item = document.createElement('div');
+            item.className = "px-3 py-1 rounded-md text-[10px] font-bold border border-white/10 shrink-0";
+            item.style.color = aura.color;
+            item.style.background = `${aura.color}11`;
+            item.innerText = aura.name;
+            
+            dock.insertBefore(item, dock.children[1] || null);
+            
+            if (dock.children.length > 40) {
+                dock.lastChild.remove();
+            }
+        },
+        notify(text, color = "#60a5fa") {
+            const anchor = document.getElementById('notif-anchor');
+            if (!anchor) return;
+            const el = document.createElement('div');
+            el.className = "notification px-6 py-3 rounded-full border bg-black/80 backdrop-blur-md text-sm font-bold shadow-2xl";
+            el.style.borderColor = color;
+            el.style.color = color;
+            el.style.boxShadow = `0 0 20px ${color}44`;
+            el.innerText = text;
+            anchor.appendChild(el);
+            setTimeout(() => el.remove(), 3500);
+        },
+        checkAchievements() {
+            ACHIEVEMENTS.forEach(ach => {
+                if (G.achievements.includes(ach.id)) return;
+                
+                let unlocked = false;
+                switch(ach.reqType) {
+                    case 'rolls': unlocked = G.rolls >= ach.reqVal; break;
+                    case 'dust': unlocked = G.dust >= ach.reqVal; break;
+                    case 'rarity': unlocked = G.highestRarity >= ach.reqVal; break;
+                    case 'crafts': unlocked = G.gear.length >= ach.reqVal; break;
+                    case 'discover': unlocked = G.discovered.length >= ach.reqVal; break;
+                }
+                if (unlocked) {
+                    G.achievements.push(ach.id);
+                    this.notify(`🏆 Medal Unlocked: ${ach.name} (+${ach.reward}x Luck)`, '#fbbf24');
+                    Modals.renderAchievements();
+                }
+            });
+        },
+        toggleAuto() {
+            if (!G.upgrades['auto_1']) {
+                this.notify("You need the Auto-Roller System! Buy it in the Shop for 20 Dust.", "#f97316");
+                return;
+            }
+            G.autoEnabled = !G.autoEnabled;
+            const btn = document.getElementById('auto-btn');
+            
+            if (btn) {
+                if (G.autoEnabled) {
+                    btn.classList.add('btn-auto-active');
+                    btn.innerText = "AUTO: ON";
+                } else {
+                    btn.classList.remove('btn-auto-active');
+                    btn.innerText = "AUTO: OFF";
+                }
+            }
+            this.save();
+        },
+        updateUI() {
+            const fmt = (n) => n > 1000000000 ? (n/1000000000).toFixed(2)+'B' : n > 1000000 ? (n/1000000).toFixed(2)+'M' : n.toLocaleString();
+            const rollsEl = document.getElementById('stat-rolls');
+            const luckEl = document.getElementById('stat-luck');
+            const dustEl = document.getElementById('stat-dust');
+            const scoreEl = document.getElementById('stat-score');
+            const wTag = document.getElementById('weather-tag');
+            const pityText = document.getElementById('pity-text');
+            const pityBar = document.getElementById('pity-bar');
+            if (rollsEl) rollsEl.innerText = fmt(G.rolls);
+            if (luckEl) luckEl.innerText = this.getLuck().toFixed(2) + 'x';
+            if (dustEl) dustEl.innerText = fmt(G.dust);
+            
+            const score = (G.discovered.length * 100) + (G.gear.length * 500) + (G.achievements.length * 1000);
+            if (scoreEl) scoreEl.innerText = score.toLocaleString();
+            
+            const w = WEATHERS[G.weatherIdx] || WEATHERS[0];
+            if (wTag) {
+                wTag.innerText = `Weather: ${w.name}`;
+                wTag.style.color = w.color;
+                wTag.style.borderColor = `${w.color}44`;
+            }
+            let pityBonus = 0;
+            Object.keys(G.upgrades).forEach(id => {
+                const up = UPGRADES.find(u => u.id === id);
+                if (up && up.type === 'pity') pityBonus += (G.upgrades[id] * up.inc);
+            });
+            const pityThreshold = Math.max(3, CONFIG.PITY_LIMIT - pityBonus);
+            
+            if (pityText) pityText.innerText = `${Math.floor(G.pity)} / ${pityThreshold}`;
+            if (pityBar) pityBar.style.width = `${Math.min(100, (G.pity / pityThreshold) * 100)}%`;
+
+            // Apply equipped background aura
+            BackgroundFX.apply();
+        },
+        save() {
+            try {
+                localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(G));
+            } catch (e) {
+                console.error("Save failed", e);
+            }
+        },
+        load() {
+            try {
+                const saved = localStorage.getItem(CONFIG.SAVE_KEY);
+                if (!saved) return;
+                const parsed = JSON.parse(saved);
+                // Defensive merge with defaults
+                G = {
+                    ...G,
+                    ...parsed,
+                    inventory: parsed.inventory || {},
+                    discovered: Array.isArray(parsed.discovered) ? parsed.discovered : [],
+                    upgrades: parsed.upgrades || {},
+                    gear: Array.isArray(parsed.gear) ? parsed.gear : [],
+                    achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+                    bgAura: parsed.bgAura || null
+                };
+                // Sanitize numeric fields to avoid corrupted/huge values breaking the game
+                const clampNumber = (val, min, max) => {
+                    const n = Number(val);
+                    if (!Number.isFinite(n)) return min;
+                    if (n < min) return min;
+                    if (n > max) return max;
+                    return n;
+                };
+                G.dust = clampNumber(G.dust, 0, 1e12);
+                G.rolls = clampNumber(G.rolls, 0, 1e9);
+                G.pity = clampNumber(G.pity, 0, CONFIG.PITY_LIMIT * 10);
+                G.highestRarity = clampNumber(G.highestRarity, 0, 1e15);
+                // Never persist a "stuck" rolling state across reloads
+                G.isRolling = false;
+                if (typeof G.weatherIdx !== 'number' || G.weatherIdx < 0 || G.weatherIdx >= WEATHERS.length) {
+                    G.weatherIdx = 0;
+                }
+                if (G.autoEnabled && !G.upgrades['auto_1']) {
+                    G.autoEnabled = false;
+                }
+                const autoBtn = document.getElementById('auto-btn');
+                if (G.autoEnabled && G.upgrades['auto_1'] && autoBtn) {
+                    autoBtn.classList.add('btn-auto-active');
+                    autoBtn.innerText = "AUTO: ON";
+                }
+            } catch (e) {
+                console.error("Load failed, resetting save", e);
+                G = {
+                    rolls: 0,
+                    dust: 0,
+                    pity: 0,
+                    luckBase: 1.0,
+                    inventory: {},
+                    discovered: [],
+                    upgrades: {},
+                    gear: [],
+                    achievements: [],
+                    weatherIdx: 0,
+                    autoEnabled: false,
+                    isRolling: false,
+                    highestRarity: 0
+                };
+            }
+        },
+        loop() {
+            Starfield.update();
+            requestAnimationFrame(() => this.loop());
+        },
+        resetData() {
+            // Clear saved data
+            try {
+                localStorage.removeItem(CONFIG.SAVE_KEY);
+            } catch (e) {
+                console.error("Failed clearing save", e);
+            }
+
+            // Reset in-memory state
+            G = {
+                rolls: 0,
+                dust: 0,
+                pity: 0,
+                luckBase: 1.0,
+                inventory: {},
+                discovered: [],
+                upgrades: {},
+                gear: [],
+                achievements: [],
+                weatherIdx: 0,
+                autoEnabled: false,
+                isRolling: false,
+                highestRarity: 0
+            };
+            this.lastRollTime = 0;
+
+            // Reset UI pieces
+            const nameEl = document.getElementById('aura-name');
+            const badgeEl = document.getElementById('aura-badge');
+            const descEl = document.getElementById('aura-desc');
+            const gradEl = document.getElementById('aura-gradient');
+            const dock = document.getElementById('history-dock');
+            const notif = document.getElementById('notif-anchor');
+            const autoBtn = document.getElementById('auto-btn');
+
+            if (nameEl) {
+                nameEl.innerText = 'START';
+                nameEl.style.color = '#ffffff';
+                nameEl.style.textShadow = 'none';
+            }
+            if (badgeEl) {
+                badgeEl.innerText = 'READY TO ROLL';
+                badgeEl.style.opacity = '1';
+                badgeEl.style.borderColor = 'rgba(255,255,255,0.1)';
+                badgeEl.style.color = '#e5e7eb';
+                badgeEl.style.boxShadow = 'none';
+            }
+            if (descEl) {
+                descEl.innerText = '';
+                descEl.style.opacity = '0';
+            }
+            if (gradEl) {
+                gradEl.style.background = 'radial-gradient(circle at center, rgba(148,163,184,0.3) 0%, transparent 60%)';
+            }
+            if (dock) {
+                // Keep the "Log" label (first child), clear the rest
+                while (dock.children.length > 1) {
+                    dock.removeChild(dock.lastChild);
+                }
+            }
+            if (notif) {
+                notif.innerHTML = '';
+            }
+            if (autoBtn) {
+                autoBtn.classList.remove('btn-auto-active');
+                autoBtn.innerText = 'Auto';
+            }
+
+            // Close warning modal, refresh panels & HUD
+            Modals.close('reset');
+            this.updateUI();
+            this.notify('All progress has been reset.', '#f97316');
+        }
+    };
+    // --- MODAL CONTROLLER ---
+    const Modals = {
+        open(type) {
+            const m = document.getElementById(`modal-${type}`);
+            if (!m) return;
+            m.classList.remove('hidden');
+            setTimeout(() => m.classList.remove('opacity-0'), 10);
+            
+            if (type === 'shop') this.renderShop();
+            if (type === 'craft') this.renderCraft();
+            if (type === 'archives') this.renderArchives();
+            if (type === 'achievements') this.renderAchievements();
+            if (type === 'backgrounds') this.renderBackgrounds();
+        },
+        renderBackgrounds() {
+            const container = document.getElementById('backgrounds-list');
+            if (!container) return;
+
+            // Only auras rarer than 1 in 1,000 and already discovered
+            const eligible = RARITIES.filter(r => r.chance >= 1000 && G.discovered.includes(r.name));
+            if (!eligible.length) {
+                container.innerHTML = `
+                    <div class="p-6 rounded-2xl bg-white/5 border border-white/10 text-center text-sm text-slate-300 font-medium">
+                        Discover auras rarer than <span class="font-bold text-white">1 in 1,000</span> to unlock animated backgrounds.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = eligible.map(r => {
+                const equipped = G.bgAura === r.name;
+                return `
+                    <div class="p-4 rounded-2xl border ${equipped ? 'border-indigo-400 bg-indigo-900/20' : 'border-white/5 bg-white/5'} flex flex-col">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 rounded-full border-2" style="background:${r.color}22; border-color:${r.color}; box-shadow:0 0 15px ${r.color}55 inset"></div>
+                            <div>
+                                <h3 class="text-sm font-black uppercase" style="color:${r.color}">${r.name}</h3>
+                                <p class="text-[10px] font-bold text-slate-500">1 in ${r.chance.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-300 flex-1 mb-4">${r.desc}</p>
+                        <button onclick="BackgroundFX.equip('${r.name}')" class="w-full py-2 rounded-xl text-[11px] font-black uppercase tracking-widest ${equipped ? 'bg-indigo-500 text-white cursor-default' : 'bg-white/10 hover:bg-white/20 text-slate-100'}">
+                            ${equipped ? 'Equipped' : 'Equip Background'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        },
+        close(type) {
+            const m = document.getElementById(`modal-${type}`);
+            if (!m) return;
+            m.classList.add('opacity-0');
+            setTimeout(() => m.classList.add('hidden'), 300);
+        },
+        renderShop() {
+            const container = document.getElementById('shop-items');
+            if (!container) return;
+            container.innerHTML = UPGRADES.map(u => {
+                const level = G.upgrades[u.id] || 0;
+                const cost = Math.floor(u.cost * Math.pow(1.8, level));
+                const isMax = level >= u.max;
+                const affordable = G.dust >= cost;
+                return `
+                    <div class="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-white/20 transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="text-4xl bg-black/40 p-3 rounded-xl border border-white/5">${u.icon}</div>
+                            <div>
+                                <h3 class="font-bold text-white uppercase text-sm">${u.name} <span class="text-blue-400 ml-2">Lv.${level} / ${u.max}</span></h3>
+                                <p class="text-[11px] text-slate-400 font-bold mt-1 uppercase tracking-widest">${u.type} +${u.inc}</p>
+                            </div>
+                        </div>
+                        <button onclick="Modals.buyUpgrade('${u.id}', ${cost})" ${isMax || !affordable ? 'disabled' : ''} class="px-6 py-3 rounded-xl text-xs font-black transition-all ${isMax ? 'bg-slate-800 text-slate-500' : affordable ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-red-900/30 text-red-400 border border-red-900/50'}">
+                            ${isMax ? 'MAXED OUT' : cost.toLocaleString() + ' ✨'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        },
+        buyUpgrade(id, cost) {
+            if (G.dust < cost) return;
+            G.dust -= cost;
+            G.upgrades[id] = (G.upgrades[id] || 0) + 1;
+            Engine.updateUI();
+            this.renderShop();
+            Engine.save();
+        },
+        renderCraft() {
+            const container = document.getElementById('craft-items');
+            if (!container) return;
+            container.innerHTML = RECIPES.map(r => {
+                const hasGear = G.gear.includes(r.id);
+                const itemEntries = Object.entries(r.cost.items);
+                const dustAvailable = Number(G.dust) || 0;
+                const canCraft = dustAvailable >= r.cost.dust && itemEntries.every(([name, count]) => {
+                    const owned = Number(G.inventory[name]) || 0;
+                    return owned >= count;
+                });
+                return `
+                    <div class="p-6 bg-white/5 rounded-2xl border ${hasGear ? 'border-green-500/30 bg-green-900/10' : 'border-white/5'} flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-black text-lg text-white uppercase">${r.name}</h3>
+                            ${hasGear ? '<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded uppercase font-bold">Equipped</span>' : ''}
+                        </div>
+                        <p class="text-xs text-purple-400 font-bold mb-4 uppercase tracking-wider">${r.bonus}</p>
+                        
+                        <div class="space-y-2 mb-6 flex-1 bg-black/40 p-4 rounded-xl">
+                            <div class="flex justify-between text-[11px] font-bold ${dustAvailable >= r.cost.dust ? 'text-green-400' : 'text-slate-500'} border-b border-white/5 pb-2 mb-2">
+                                <span>✨ Stardust</span>
+                                <span>${G.dust.toLocaleString()} / ${r.cost.dust.toLocaleString()}</span>
+                            </div>
+                            ${itemEntries.map(([name, count]) => {
+                                const aura = RARITIES.find(x => x.name === name);
+                                const color = aura ? aura.color : '#fff';
+                                const owned = Number(G.inventory[name]) || 0;
+                                const ok = owned >= count;
+                                return `
+                                <div class="flex justify-between text-[11px] font-bold ${ok ? 'text-green-400' : 'text-slate-500'}">
+                                    <span style="color: ${color}">${name}</span>
+                                    <span>${owned.toLocaleString()} / ${count.toLocaleString()}</span>
+                                </div>
+                            `}).join('')}
+                        </div>
+                        <button onclick="Modals.craft('${r.id}')" ${hasGear || !canCraft ? 'disabled' : ''} class="w-full py-3 rounded-xl text-xs font-black uppercase transition-all ${hasGear ? 'bg-green-600/50 text-white cursor-not-allowed' : canCraft ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)]' : 'bg-white/5 text-slate-600 cursor-not-allowed'}">
+                            ${hasGear ? 'OWNED' : 'FORGE ARTIFACT'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        },
+        craft(id) {
+            const r = RECIPES.find(x => x.id === id);
+            if (!r) return;
+            const itemEntries = Object.entries(r.cost.items);
+            const dustAvailable = Number(G.dust) || 0;
+            const canCraft = dustAvailable >= r.cost.dust && itemEntries.every(([name, count]) => {
+                const owned = Number(G.inventory[name]) || 0;
+                return owned >= count;
+            });
+            if (!canCraft) {
+                Engine.notify("Missing materials or Stardust for this craft.", "#f97316");
+                return;
+            }
+            G.dust = dustAvailable - r.cost.dust;
+            itemEntries.forEach(([name, count]) => {
+                const owned = Number(G.inventory[name]) || 0;
+                const remaining = owned - count;
+                G.inventory[name] = remaining > 0 ? remaining : 0;
+            });
+            if (!G.gear.includes(id)) G.gear.push(id);
+            Engine.checkAchievements();
+            Engine.updateUI();
+            this.renderCraft();
+            Engine.save();
+        },
+        renderArchives() {
+            const container = document.getElementById('archives-list');
+            const prog = document.getElementById('archive-progress');
+            if (!container) return;
+            if (prog) prog.innerText = G.discovered.length;
+            container.innerHTML = RARITIES.map(r => {
+                const discovered = G.discovered.includes(r.name);
+                const count = G.inventory[r.name] || 0;
+                return `
+                    <div class="flex flex-col items-center p-4 bg-white/5 rounded-2xl text-center border border-white/5 ${discovered ? '' : 'opacity-20 grayscale'}">
+                        <div class="w-14 h-14 rounded-full mb-4 border-2" style="background: ${r.color}22; border-color: ${r.color}; box-shadow: 0 0 20px ${r.color}44 inset"></div>
+                        <h4 class="text-xs font-black uppercase mb-1" style="color: ${r.color}">${discovered ? r.name : '???'}</h4>
+                        <p class="text-[9px] font-bold text-slate-500 mb-2">1 IN ${r.chance.toLocaleString()}</p>
+                        <div class="mt-auto w-full bg-black/50 py-1 rounded text-[9px] font-black text-white">
+                            OWNED: ${count.toLocaleString()}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        },
+        renderAchievements() {
+            const container = document.getElementById('achievements-list');
+            const bonusEl = document.getElementById('ach-luck-bonus');
+            if (!container) return;
+            let totalBonus = 0;
+            
+            container.innerHTML = ACHIEVEMENTS.map(a => {
+                const unlocked = G.achievements.includes(a.id);
+                if (unlocked) totalBonus += a.reward;
+                
+                return `
+                    <div class="p-4 rounded-xl border flex items-center gap-4 ${unlocked ? 'bg-green-900/20 border-green-500/30' : 'bg-white/5 border-white/5 opacity-60'}">
+                        <div class="w-12 h-12 flex items-center justify-center rounded-full text-2xl ${unlocked ? 'bg-green-500/20 text-yellow-400' : 'bg-black/40 text-slate-600'}">
+                            ${unlocked ? '🏆' : '🔒'}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-black text-sm uppercase ${unlocked ? 'text-white' : 'text-slate-400'}">${a.name}</h4>
+                            <p class="text-[10px] font-bold text-slate-500 mt-0.5">${a.desc}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-black uppercase text-slate-500 block mb-1">Reward</span>
+                            <span class="font-black text-sm ${unlocked ? 'text-green-400' : 'text-slate-600'}">+${a.reward}x Luck</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            if (bonusEl) bonusEl.innerText = `+${totalBonus.toFixed(2)}x`;
+        }
+    };
+    // --- PARTICLE ENGINE (background: stars / aura-themed motion) ---
+    const Starfield = {
+        canvas: null, ctx: null, stars: [], particles: [], time: 0,
+        init() {
+            this.canvas = document.getElementById('starfield');
+            if (!this.canvas) return;
+            this.ctx = this.canvas.getContext('2d');
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+            this.stars = [];
+            const w = this.canvas.width;
+            const h = this.canvas.height;
+            for(let i=0; i<300; i++) this.stars.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                s: Math.random() * 2,
+                v: Math.random() * 0.5 + 0.1,
+                a: Math.random()
+            });
+        },
+        resize() {
+            if (!this.canvas) return;
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        },
+        burst(color, intensity = 10) {
+            if (!this.canvas) return;
+            const count = Math.min(200, Math.floor(intensity * 5));
+            for(let i=0; i<count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 15 + 5;
+                this.particles.push({
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2 - 50,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1.0,
+                    decay: Math.random() * 0.03 + 0.01,
+                    c: color,
+                    s: Math.random() * 6 + 2
+                });
+            }
+        },
+        update() {
+            if (!this.canvas || !this.ctx) return;
+            this.time += 0.016;
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            const w = this.canvas.width;
+            const h = this.canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const bgAura = G.bgAura;
+            const auraDef = bgAura ? RARITIES.find(r => r.name === bgAura) : null;
+            const isBlackHole = bgAura === 'Black Hole';
+
+            if (isBlackHole) {
+                // Black Hole: stars spiral inward toward center (pulled in), then respawn at edge
+                this.stars.forEach(s => {
+                    const dx = cx - s.x;
+                    const dy = cy - s.y;
+                    const dist = Math.hypot(dx, dy) || 0.01;
+                    const pull = 0.15 + 80 / (dist + 50);
+                    const tangent = 0.02 * (s.dist / 200);
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const tx = -ny;
+                    const ty = nx;
+                    s.x += (nx * pull + tx * tangent);
+                    s.y += (ny * pull + ty * tangent);
+                    s.dist = Math.hypot(s.x - cx, s.y - cy);
+                    this.ctx.globalAlpha = Math.min(1, s.dist / 80) * s.a * 0.8;
+                    this.ctx.fillStyle = s.dist < 120 ? '#60a5fa' : '#e2e8f0';
+                    this.ctx.shadowBlur = s.dist < 150 ? 8 : 0;
+                    this.ctx.shadowColor = '#60a5fa';
+                    this.ctx.beginPath();
+                    this.ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+                    this.ctx.fill();
+                    this.ctx.shadowBlur = 0;
+                    if (s.dist < 30 || s.x < -20 || s.x > w + 20 || s.y < -20 || s.y > h + 20) {
+                        const a = Math.random() * Math.PI * 2;
+                        const d = Math.max(w, h) * 0.55;
+                        s.x = cx + Math.cos(a) * d;
+                        s.y = cy + Math.sin(a) * d;
+                        s.dist = d;
+                    }
+                });
+            } else if (auraDef) {
+                // Equipped aura (not Black Hole): tinted falling stars, slower & dreamy
+                const tint = auraDef.color;
+                this.stars.forEach(s => {
+                    this.ctx.globalAlpha = s.a * 0.75;
+                    this.ctx.fillStyle = tint;
+                    this.ctx.shadowBlur = 6;
+                    this.ctx.shadowColor = tint;
+                    this.ctx.beginPath();
+                    this.ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+                    this.ctx.fill();
+                    this.ctx.shadowBlur = 0;
+                    s.y += s.v * 0.6 * (Engine.isRolling ? 2 : 1);
+                    s.x += Math.sin(this.time + s.x * 0.002) * 0.3;
+                    if (s.y > h) {
+                        s.y = 0;
+                        s.x = Math.random() * w;
+                    }
+                });
+            } else {
+                // Default: classic white stars falling from the sky
+                this.stars.forEach(s => {
+                    this.ctx.globalAlpha = s.a * 0.7;
+                    this.ctx.fillStyle = "#ffffff";
+                    this.ctx.beginPath();
+                    this.ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+                    this.ctx.fill();
+                    s.y += s.v * (Engine.isRolling ? 3 : 1);
+                    if (s.y > h) {
+                        s.y = 0;
+                        s.x = Math.random() * w;
+                    }
+                });
+            }
+
+            this.particles = this.particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life -= p.decay;
+                this.ctx.globalAlpha = p.life;
+                this.ctx.fillStyle = p.c;
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = p.c;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, p.s * p.life, 0, Math.PI*2);
+                this.ctx.fill();
+                this.ctx.shadowBlur = 0;
+                return p.life > 0;
+            });
+        }
+    };
+
+    // --- RARE INTRO FX CONTROLLER ---
+    const IntroFX = {
+        timer: null,
+        play(aura) {
+            G.introPlaying = true;
+            const overlay = document.getElementById('rare-intro-overlay');
+            const core = document.getElementById('intro-core');
+            const nameEl = document.getElementById('intro-name');
+            const labelEl = document.getElementById('intro-label');
+            if (!overlay || !core || !nameEl || !labelEl) {
+                G.introPlaying = false;
+                return;
+            }
+
+            // Configure theme based on aura
+            if (aura.name === 'Black Hole') {
+                core.style.background = 'radial-gradient(circle at center, #000 0%, #0f172a 45%, #1e293b 80%)';
+                core.style.boxShadow = '0 0 40px rgba(59,130,246,0.7)';
+                labelEl.innerText = 'GRAVITATIONAL SINGULARITY';
+            } else {
+                core.style.background = `radial-gradient(circle at center, ${aura.color} 0%, rgba(15,23,42,1) 70%)`;
+                core.style.boxShadow = `0 0 35px ${aura.color}aa`;
+                labelEl.innerText = 'RARE AURA DETECTED';
+            }
+            nameEl.innerText = aura.name.toUpperCase();
+
+            // Show overlay briefly
+            overlay.classList.remove('hidden');
+            overlay.classList.add('intro-visible');
+
+            if (this.timer) clearTimeout(this.timer);
+            this.timer = setTimeout(() => {
+                overlay.classList.remove('intro-visible');
+                // Wait for fade-out then hide to free view
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    G.introPlaying = false;
+                }, 400);
+            }, 1400);
+        }
+    };
+
+    // --- BACKGROUND AURA CONTROLLER ---
+    const BackgroundFX = {
+        equip(name) {
+            G.bgAura = name;
+            Engine.save();
+            this.apply();
+            // Refresh backgrounds modal labels
+            Modals.renderBackgrounds();
+            Engine.notify(`Background aura equipped: ${name}`, '#a855f7');
+        },
+        apply() {
+            const gradEl = document.getElementById('aura-gradient');
+            if (!gradEl) return;
+
+            // Clear previous classes
+            gradEl.classList.remove('bg-aura-generic', 'bg-aura-blackhole');
+
+            const auraName = G.bgAura;
+            if (!auraName) {
+                // Default subtle nebula
+                gradEl.style.background = 'radial-gradient(circle at center, rgba(56,189,248,0.25) 0%, transparent 60%)';
+                return;
+            }
+
+            const aura = RARITIES.find(r => r.name === auraName);
+            const baseColor = aura ? aura.color : '#38bdf8';
+
+            if (auraName === 'Black Hole') {
+                gradEl.classList.add('bg-aura-blackhole');
+            } else {
+                gradEl.classList.add('bg-aura-generic');
+                gradEl.style.background = `radial-gradient(circle at center, ${baseColor}44 0%, transparent 60%)`;
+            }
+        }
+    };
+    // --- START ---
+    window.onload = () => Engine.init();
+</script>
+</body>
+</html>
